@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Finanze">
+    <meta name="theme-color" content="#0066cc">
+    <title>Gestione Spese</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+            color: white;
+            padding: max(env(safe-area-inset-top), 15px) 20px 20px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .sync-status {
+            font-size: 12px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .sync-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #34c759;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 15px;
+            padding-bottom: max(env(safe-area-inset-bottom), 80px);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .firebase-setup {
+            background: #fff3cd;
+            border: 2px dashed #ffc107;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .firebase-setup.show {
+            display: block;
+        }
+        
+        .firebase-setup h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .firebase-setup p {
+            color: #856404;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .firebase-setup input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        
+        .firebase-setup button {
+            width: 100%;
+            padding: 10px;
+            background: #ffc107;
+            color: #856404;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #fafafa;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #0066cc;
+            background: white;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .btn-primary:active {
+            background: #0052a3;
+            transform: scale(0.98);
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .totali {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .totale-box {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .totale-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .totale-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .totale-entrate {
+            color: #34c759;
+        }
+        
+        .totale-uscite {
+            color: #ff3b30;
+        }
+        
+        .totale-saldo {
+            color: #0066cc;
+        }
+        
+        .transazione-item {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .transazione-info {
+            flex: 1;
+        }
+        
+        .transazione-data {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+        
+        .transazione-desc {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 2px;
+        }
+        
+        .transazione-cat {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .transazione-importo {
+            text-align: right;
+        }
+        
+        .importo-value {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .entrata-badge {
+            color: #34c759;
+        }
+        
+        .uscita-badge {
+            color: #ff3b30;
+        }
+        
+        .badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .badge-entrata {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .badge-uscita {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .btn-elimina {
+            background: #ff3b30;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        
+        .btn-elimina:active {
+            background: #d32f2f;
+            transform: scale(0.95);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .grafico-barra {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .grafico-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .grafico-mese {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .grafico-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ff3b30;
+        }
+        
+        .grafico-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .grafico-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff3b30 0%, #ff6b6b 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0066cc;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 600px) {
+            .totali {
+                grid-template-columns: 1fr;
+            }
+            
+            .totale-value {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <span>💰 Gestione Spese</span>
+            <div class="sync-status" id="syncStatus">
+                <div class="sync-indicator"></div>
+                <span>Sincronizzato</span>
+            </div>
+        </h1>
+    </div>
+    
+    <div class="container">
+        <div id="firebaseSetup" class="firebase-setup show">
+            <h3>🔧 Configurazione Firebase</h3>
+            <p><strong>Primo utilizzo:</strong> Configura Firebase per sincronizzare i dati tra tutti i tuoi dispositivi.</p>
+            <p style="font-size: 12px; margin-bottom: 15px;">
+                <strong>Come ottenere le credenziali:</strong><br>
+                1. Vai su <a href="https://console.firebase.google.com" target="_blank" style="color: #856404;">console.firebase.google.com</a><br>
+                2. Crea un nuovo progetto (o usa uno esistente)<br>
+                3. Aggiungi un'app Web (icona &lt;/&gt;)<br>
+                4. Copia le credenziali qui sotto<br>
+                5. Abilita Firestore Database nelle impostazioni
+            </p>
+            <input type="text" id="apiKey" placeholder="API Key">
+            <input type="text" id="projectId" placeholder="Project ID">
+            <input type="text" id="appId" placeholder="App ID">
+            <button onclick="salvaConfigFirebase()">Salva e Connetti</button>
+            <p style="font-size: 11px; margin-top: 10px; opacity: 0.8;">Le credenziali sono salvate solo sul tuo dispositivo</p>
+        </div>
+        
+        <div id="loadingScreen" class="card loading" style="display: none;">
+            <div class="spinner"></div>
+            <div>Connessione a Firebase...</div>
+        </div>
+        
+        <div id="appContent" style="display: none;">
+            <div class="card">
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" id="data">
+                </div>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <input type="text" id="descrizione" placeholder="es. Spesa supermercato">
+                </div>
+                <div class="form-group">
+                    <label>Importo (€)</label>
+                    <input type="number" id="importo" step="0.01" placeholder="0.00" inputmode="decimal">
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select id="categoria">
+                        <option>Cibo</option>
+                        <option>Trasporti</option>
+                        <option>Casa</option>
+                        <option>Salute</option>
+                        <option>Svago</option>
+                        <option>Abbigliamento</option>
+                        <option>Istruzione</option>
+                        <option>Altro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="tipo">
+                        <option>Uscita</option>
+                        <option>Entrata</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="aggiungiTransazione()" id="btnAggiungi">Aggiungi Transazione</button>
+            </div>
+            
+            <div class="totali">
+                <div class="totale-box">
+                    <div class="totale-label">Entrate</div>
+                    <div class="totale-value totale-entrate" id="totaleEntrate">0 €</div>
+                </div>
+                <div class="totale-box">
+                    <div class="totale-label">Uscite</div>
+                    <div class="totale-value totale-uscite" id="totaleUscite">0 €</div>
+                </div>
+                <div class="totale-box">
+                    <div class="totale-label">Saldo</div>
+                    <div class="totale-value totale-saldo" id="saldo">0 €</div>
+                </div>
+            </div>
+            
+            <div class="section-title">📋 Transazioni Recenti</div>
+            <div id="listaTransazioni"></div>
+            
+            <div class="section-title" style="margin-top: 25px;">📊 Spese Mensili</div>
+            <div id="grafico"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        let db;
+        let transazioni = [];
+        let unsubscribe;
+
+        // Carica configurazione Firebase
+        function caricaConfigFirebase() {
+            const config = localStorage.getItem('firebaseConfig');
+            if (config) {
+                return JSON.parse(config);
+            }
+            return null;
+        }
+
+        window.salvaConfigFirebase = function() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const projectId = document.getElementById('projectId').value.trim();
+            const appId = document.getElementById('appId').value.trim();
+
+            if (!apiKey || !projectId || !appId) {
+                alert('Compila tutti i campi!');
+                return;
+            }
+
+            const config = {
+                apiKey: apiKey,
+                authDomain: projectId + '.firebaseapp.com',
+                projectId: projectId,
+                storageBucket: projectId + '.appspot.com',
+                messagingSenderId: '000000000000',
+                appId: appId
+            };
+
+            localStorage.setItem('firebaseConfig', JSON.stringify(config));
+            document.getElementById('firebaseSetup').classList.remove('show');
+            document.getElementById('loadingScreen').style.display = 'block';
+            
+            setTimeout(() => inizializzaFirebase(config), 500);
+        };
+
+        function inizializzaFirebase(config) {
+            try {
+                const app = initializeApp(config);
+                db = getFirestore(app);
+                
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                
+                caricaTransazioni();
+                document.getElementById('data').valueAsDate = new Date();
+                
+                updateSyncStatus('Sincronizzato', true);
+            } catch (error) {
+                console.error('Errore Firebase:', error);
+                alert('Errore connessione Firebase. Controlla le credenziali.\n\n' + error.message);
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('firebaseSetup').classList.add('show');
+                localStorage.removeItem('firebaseConfig');
+            }
+        }
+
+        function caricaTransazioni() {
+            const q = query(collection(db, 'transazioni'), orderBy('data', 'desc'));
+            
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                transazioni = [];
+                snapshot.forEach((doc) => {
+                    transazioni.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                aggiornaUI();
+                updateSyncStatus('Sincronizzato', true);
+            }, (error) => {
+                console.error('Errore sync:', error);
+                updateSyncStatus('Offline', false);
+            });
+        }
+
+        function updateSyncStatus(text, connected) {
+            const status = document.getElementById('syncStatus');
+            const indicator = status.querySelector('.sync-indicator');
+            status.querySelector('span').textContent = text;
+            indicator.style.background = connected ? '#34c759' : '#ff3b30';
+        }
+
+        window.aggiungiTransazione = async function() {
+            const data = document.getElementById('data').value;
+            const descrizione = document.getElementById('descrizione').value.trim();
+            const importo = parseFloat(document.getElementById('importo').value);
+            const categoria = document.getElementById('categoria').value;
+            const tipo = document.getElementById('tipo').value;
+
+            if (!data || !descrizione || !importo || importo <= 0) {
+                alert('Compila tutti i campi correttamente!');
+                return;
+            }
+
+            const btn = document.getElementById('btnAggiungi');
+            btn.disabled = true;
+            btn.textContent = 'Salvataggio...';
+
+            try {
+                await addDoc(collection(db, 'transazioni'), {
+                    data: data,
+                    categoria: categoria,
+                    descrizione: descrizione,
+                    importo: importo,
+                    entrata: tipo === 'Entrata',
+                    timestamp: new Date().toISOString()
+                });
+
+                document.getElementById('descrizione').value = '';
+                document.getElementById('importo').value = '';
+                document.getElementById('data').valueAsDate = new Date();
+            } catch (error) {
+                console.error('Errore:', error);
+                alert('Errore nel salvataggio: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Aggiungi Transazione';
+            }
+        };
+
+        window.eliminaTransazione = async function(id) {
+            if (confirm('Vuoi eliminare questa transazione?')) {
+                try {
+                    await deleteDoc(doc(db, 'transazioni', id));
+                } catch (error) {
+                    console.error('Errore:', error);
+                    alert('Errore nell\'eliminazione: ' + error.message);
+                }
+            }
+        };
+
+        function aggiornaUI() {
+            const lista = document.getElementById('listaTransazioni');
+
+            let totaleEntrate = 0;
+            let totaleUscite = 0;
+
+            if (transazioni.length === 0) {
+                lista.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📝</div>
+                        <div>Nessuna transazione ancora</div>
+                    </div>
+                `;
+            } else {
+                lista.innerHTML = transazioni.map(t => {
+                    if (t.entrata) totaleEntrate += t.importo;
+                    else totaleUscite += t.importo;
+
+                    const dataObj = new Date(t.data + 'T00:00:00');
+                    const dataFormattata = dataObj.toLocaleDateString('it-IT', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        year: 'numeric' 
+                    });
+
+                    return `
+                        <div class="transazione-item">
+                            <div class="transazione-info">
+                                <div class="transazione-data">${dataFormattata}</div>
+                                <div class="transazione-desc">${t.descrizione}</div>
+                                <div class="transazione-cat">
+                                    <span class="badge ${t.entrata ? 'badge-entrata' : 'badge-uscita'}">
+                                        ${t.categoria}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="transazione-importo">
+                                <div class="importo-value ${t.entrata ? 'entrata-badge' : 'uscita-badge'}">
+                                    ${t.entrata ? '+' : '-'}${t.importo.toFixed(2)} €
+                                </div>
+                                <button class="btn-elimina" onclick="eliminaTransazione('${t.id}')">Elimina</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('totaleEntrate').textContent = totaleEntrate.toFixed(2) + ' €';
+            document.getElementById('totaleUscite').textContent = totaleUscite.toFixed(2) + ' €';
+            const saldo = totaleEntrate - totaleUscite;
+            document.getElementById('saldo').textContent = saldo.toFixed(2) + ' €';
+
+            aggiornaGrafico();
+        }
+
+        function aggiornaGrafico() {
+            const speseMensili = {};
+            transazioni.forEach(t => {
+                if (!t.entrata) {
+                    const mese = t.data.substring(0, 7);
+                    speseMensili[mese] = (speseMensili[mese] || 0) + t.importo;
+                }
+            });
+
+            const grafico = document.getElementById('grafico');
+            const sorted = Object.entries(speseMensili).sort();
+
+            if (sorted.length === 0) {
+                grafico.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <div>Nessuna spesa da visualizzare</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const maxSpesa = Math.max(...sorted.map(([, v]) => v));
+            
+            grafico.innerHTML = sorted.map(([mese, totale]) => {
+                const meseObj = new Date(mese + '-01');
+                const meseFormattato = meseObj.toLocaleDateString('it-IT', { 
+                    year: 'numeric', 
+                    month: 'long' 
+                });
+                const percentuale = (totale / maxSpesa) * 100;
+
+                return `
+                    <div class="grafico-barra">
+                        <div class="grafico-header">
+                            <span class="grafico-mese">${meseFormattato}</span>
+                            <span class="grafico-value">${totale.toFixed(2)} €</span>
+                        </div>
+                        <div class="grafico-bar-container">
+                            <div class="grafico-bar-fill" style="width: ${percentuale}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Inizializzazione
+        const savedConfig = caricaConfigFirebase();
+        if (savedConfig) {
+            document.getElementById('firebaseSetup').classList.remove('show');
+            document.getElementById('loadingScreen').style.display = 'block';
+            setTimeout(() => inizializzaFirebase(savedConfig), 500);
+        }
+    </script>
+</body>
+</html>
+
+<!-- <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBsBUC7A86IL_d-7oQsSCeqTO_mF_gfMYE",
+    authDomain: "finanzepersonali-756d8.firebaseapp.com",
+    projectId: "finanzepersonali-756d8",
+    storageBucket: "finanzepersonali-756d8.firebasestorage.app",
+    messagingSenderId: "1051546871137",
+    appId: "1:1051546871137:web:9a542c877fa493b03ad120"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script> -->
